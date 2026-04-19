@@ -112,21 +112,27 @@ def render_upload_analyze(demo_mode: bool = False, expected_size: int = 25) -> N
     )
 
     # ------------------------------------------------------------------ #
-    # MediaPipe availability check                                         #
+    # MediaPipe availability check — auto-fall-through to demo content    #
     # ------------------------------------------------------------------ #
     if not _detector.mediapipe_available():
         st.markdown(
             """
-<div style="background:rgba(233,69,96,0.10); border:1px solid #e94560;
+<div style="background:rgba(255,215,0,0.08); border:1px solid #ffd700;
      border-radius:12px; padding:16px 20px; margin:16px 0;">
-  ⚠️ <strong style="color:#e94560;">MediaPipe unavailable</strong> —
-  live analysis is disabled on this platform.
-  Enable <strong>Demo Mode</strong> in the sidebar to explore all features with synthetic data.
+  🟡 <strong style="color:#ffd700;">Live analysis unavailable</strong> —
+  MediaPipe is not supported on this platform/Python version.
+  Showing <strong>Demo Mode</strong> results automatically below.
 </div>
 """,
             unsafe_allow_html=True,
         )
-        _render_instructions()
+        # Load demo data if not already cached, then show it
+        if "results" not in st.session_state:
+            with st.spinner("Loading demo data …"):
+                from demo import get_demo_results
+                st.session_state["results"] = get_demo_results(expected_size)
+                st.session_state["demo_results_cached_size"] = expected_size
+        _render_results_preview()
         return
 
     # ------------------------------------------------------------------ #
