@@ -72,24 +72,38 @@ from config import (
 
 # ---------------------------------------------------------------------------
 # MediaPipe solution handles (module-level singletons)
+#
+# mediapipe 0.10.30+ restructured the solutions API; on some platforms the
+# attribute is absent entirely.  All three handles fall back to None so the
+# rest of the module can degrade gracefully without crashing at import time.
 # ---------------------------------------------------------------------------
 
-mp_face_mesh = mp.solutions.face_mesh
-mp_pose      = mp.solutions.pose
+try:
+    mp_face_mesh = mp.solutions.face_mesh
+    mp_hands     = mp.solutions.hands
+    mp_pose      = mp.solutions.pose
+except AttributeError:
+    mp_face_mesh = None
+    mp_hands     = None
+    mp_pose      = None
 
-_face_mesh = mp_face_mesh.FaceMesh(
-    static_image_mode=True,
-    max_num_faces=MAX_NUM_FACES,
-    refine_landmarks=True,        # iris landmarks (469–477)
-    min_detection_confidence=FACE_MIN_DETECTION,
-)
+try:
+    _face_mesh = mp_face_mesh.FaceMesh(
+        static_image_mode=True,
+        max_num_faces=MAX_NUM_FACES,
+        refine_landmarks=True,        # iris landmarks (469–477)
+        min_detection_confidence=FACE_MIN_DETECTION,
+    ) if mp_face_mesh is not None else None
 
-_pose = mp_pose.Pose(
-    static_image_mode=True,
-    model_complexity=1,
-    min_detection_confidence=POSE_MIN_DETECTION,
-    min_tracking_confidence=POSE_MIN_TRACKING,
-)
+    _pose = mp_pose.Pose(
+        static_image_mode=True,
+        model_complexity=1,
+        min_detection_confidence=POSE_MIN_DETECTION,
+        min_tracking_confidence=POSE_MIN_TRACKING,
+    ) if mp_pose is not None else None
+except Exception:
+    _face_mesh = None
+    _pose      = None
 
 # ---------------------------------------------------------------------------
 # SCB CNN model (optional singleton — None if not trained yet)
@@ -275,7 +289,7 @@ def _analyse_face(face_landmarks, h: int, w: int) -> FaceSignals:
 # Pose analysis
 # ---------------------------------------------------------------------------
 
-_PL = mp_pose.PoseLandmark
+_PL = mp_pose.PoseLandmark if mp_pose is not None else None
 
 
 def _analyse_pose_in_crop(
@@ -293,6 +307,8 @@ def _analyse_pose_in_crop(
     crop_origin : (x, y) top-left corner in full-frame pixel coords.
     frame_h/w   : Full-frame dimensions for fraction-based thresholds.
     """
+    if _pose is None:
+        return PoseSignals()
     rgb = cv2.cvtColor(bgr_crop, cv2.COLOR_BGR2RGB)
     res = _pose.process(rgb)
     if not res.pose_landmarks:
@@ -441,6 +457,10 @@ class BehavioralDetector:
         results = detector.analyse(bgr_frame, person_boxes=[(x,y,w,h), ...])
     """
 
+    def mediapipe_available(self) -> bool:
+        """Return True if MediaPipe solutions initialised successfully."""
+        return _face_mesh is not None or _pose is not None
+
     def scb_model_loaded(self) -> bool:
         """Return True if the SCB CNN is available for inference."""
         return _scb_model is not None
@@ -467,11 +487,12 @@ class BehavioralDetector:
         rgb  = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
 
         # ---- Phase A: Face Mesh on full image (multi-face) ----
-        fm_res = _face_mesh.process(rgb)
         face_signals: list[FaceSignals] = []
-        if fm_res.multi_face_landmarks:
-            for fl in fm_res.multi_face_landmarks:
-                face_signals.append(_analyse_face(fl, h, w))
+        if _face_mesh is not None:
+            fm_res = _face_mesh.process(rgb)
+            if fm_res.multi_face_landmarks:
+                for fl in fm_res.multi_face_landmarks:
+                    face_signals.append(_analyse_face(fl, h, w))
 
         # ---- Phase B: Pose + SCB CNN per person crop ----
         if not person_boxes:

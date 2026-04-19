@@ -107,6 +107,17 @@ def render_upload_analyze(demo_mode: bool = False, expected_size: int = 25) -> N
         ),
     )
 
+    if not _detector.mediapipe_available():
+        st.warning(
+            "**MediaPipe solutions are unavailable** on this deployment "
+            "(the `solutions` API requires a compatible platform/Python version).  "
+            "Live analysis is disabled.  Enable **Demo Mode** in the sidebar to "
+            "explore all app features with synthetic data.",
+            icon="⚠️",
+        )
+        _render_instructions()
+        return
+
     if uploaded is None:
         _render_instructions()
         return
