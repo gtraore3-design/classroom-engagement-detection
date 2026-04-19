@@ -52,7 +52,12 @@ from typing import Optional
 
 import cv2
 import numpy as np
-import mediapipe as mp
+
+from pipeline._mp_probe import MEDIAPIPE_OK, TF_OK
+if MEDIAPIPE_OK:
+    import mediapipe as mp
+else:
+    mp = None
 
 from config import (
     HEAD_PITCH_DOWN_DEG,
@@ -113,6 +118,8 @@ except Exception:
 
 def _try_load_scb() -> Optional[object]:
     """Silently attempt to load the SCB model checkpoint."""
+    if not TF_OK:
+        return None          # TF crashes on import (SIGABRT) on this platform
     try:
         from model.behavior_model import load_scb_model
         return load_scb_model()

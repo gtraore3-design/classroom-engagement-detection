@@ -13,7 +13,12 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-import mediapipe as mp
+
+from pipeline._mp_probe import MEDIAPIPE_OK
+if MEDIAPIPE_OK:
+    import mediapipe as mp
+else:
+    mp = None
 
 from config import HOG_WIN_STRIDE, HOG_PADDING, HOG_SCALE, HOG_NMS_THRESHOLD, FACE_MIN_DETECTION
 

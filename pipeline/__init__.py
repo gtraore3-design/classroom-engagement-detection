@@ -1,11 +1,3 @@
-from .behavioral_detection import BehavioralDetector
-from .attendance import AttendanceDetector
-from .engagement_scorer import EngagementScorer
-from .face_blur import blur_faces
-
-__all__ = [
-    "BehavioralDetector",
-    "AttendanceDetector",
-    "EngagementScorer",
-    "blur_faces",
-]
+# Intentionally empty — import directly from submodules.
+# Eager re-exports here would trigger mediapipe at package import time,
+# crashing Python on platforms where mediapipe is not supported.

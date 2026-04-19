@@ -30,9 +30,10 @@ from config import (
     SCB_ENGAGEMENT_SCORES,
 )
 from model.evaluate import SCB_DEMO_METRICS, FER_DEMO_METRICS
+from pipeline._mp_probe import TF_OK
 
 # load_scb_model / load_fer_model are imported lazily inside render_model_evaluation()
-# so that TensorFlow is never required at app startup.
+# and guarded by TF_OK so TensorFlow is never imported if it crashes on this platform.
 
 # Optional DeepFace (graceful degradation)
 try:
@@ -97,16 +98,18 @@ def _per_class_bar(per_class: dict, classes: list[str],
 def render_model_evaluation() -> None:
     st.title("Model Evaluation")
 
-    # TensorFlow is optional — not available on Python 3.14 / Streamlit Cloud.
+    # TensorFlow is optional — crashes with SIGABRT on Python 3.13+ (no wheels).
     # Everything except live model loading works without it.
-    try:
-        from model.behavior_model import load_scb_model
-        from model.fer_model import load_fer_model
-        _tf_available = True
-    except ImportError:
-        _tf_available = False
-        load_scb_model = lambda: None  # noqa: E731
-        load_fer_model = lambda: None  # noqa: E731
+    _tf_available = False
+    load_scb_model = lambda: None  # noqa: E731
+    load_fer_model = lambda: None  # noqa: E731
+    if TF_OK:
+        try:
+            from model.behavior_model import load_scb_model
+            from model.fer_model import load_fer_model
+            _tf_available = True
+        except ImportError:
+            pass
 
     if not _tf_available:
         st.info(
