@@ -66,17 +66,25 @@ def render_upload_analyze(demo_mode: bool = False, expected_size: int = 25) -> N
                     upload widget.
     expected_size : Instructor-supplied expected class size (from sidebar).
     """
-    st.title("Upload & Analyze")
+    st.markdown("## 📤 Upload & Analyze")
 
     # ------------------------------------------------------------------ #
     # Demo mode — show pre-loaded results                                  #
     # ------------------------------------------------------------------ #
     if demo_mode:
-        st.info(
-            "**Demo Mode is ON.**  "
-            "Showing pre-computed synthetic results for a 20-student classroom.  "
-            "Turn off Demo Mode in the sidebar to upload your own image.",
-            icon="🎭",
+        st.markdown(
+            """
+<div style="background:rgba(0,196,154,0.10); border:1px solid #00c49a;
+     border-radius:12px; padding:16px 20px; margin-bottom:18px;">
+  <span style="font-size:1.2rem;">🎭</span>
+  <strong style="color:#00c49a;"> Demo Mode is active.</strong>
+  <span style="color:#a0c4e8;">
+    Showing pre-computed synthetic results for a 20-student classroom.
+    Toggle <em>Demo Mode</em> off in the sidebar to upload a real image.
+  </span>
+</div>
+""",
+            unsafe_allow_html=True,
         )
         _render_results_preview()
         return
@@ -84,20 +92,57 @@ def render_upload_analyze(demo_mode: bool = False, expected_size: int = 25) -> N
     # ------------------------------------------------------------------ #
     # Privacy notice (live mode only)                                      #
     # ------------------------------------------------------------------ #
-    st.info(
-        "**Privacy Notice** — All processing is performed in-memory only.  "
-        "No faces, images, or personal data are stored, logged, or transmitted.  "
-        "Detected faces are blurred in all displayed output images.",
-        icon="🔒",
+    st.markdown(
+        """
+<div style="background:rgba(88,166,255,0.08); border:1px solid #0f3460;
+     border-radius:12px; padding:14px 18px; margin-bottom:12px;">
+  🔒 <strong>Privacy Notice</strong> — All processing is performed in-memory only.
+  No faces, images, or personal data are stored, logged, or transmitted.
+  Detected faces are blurred before any display.
+</div>
+""",
+        unsafe_allow_html=True,
     )
     st.markdown(
-        "> **Disclaimer:** This tool reports **aggregate classroom trends only**.  "
-        "No individual student is identified, tracked, or assessed."
+        "<p style='color:#8b949e; font-size:0.85rem;'>"
+        "⚠️ <em>This tool reports <strong>aggregate classroom trends only</strong>. "
+        "No individual student is identified, tracked, or assessed.</em>"
+        "</p>",
+        unsafe_allow_html=True,
     )
+
+    # ------------------------------------------------------------------ #
+    # MediaPipe availability check                                         #
+    # ------------------------------------------------------------------ #
+    if not _detector.mediapipe_available():
+        st.markdown(
+            """
+<div style="background:rgba(233,69,96,0.10); border:1px solid #e94560;
+     border-radius:12px; padding:16px 20px; margin:16px 0;">
+  ⚠️ <strong style="color:#e94560;">MediaPipe unavailable</strong> —
+  live analysis is disabled on this platform.
+  Enable <strong>Demo Mode</strong> in the sidebar to explore all features with synthetic data.
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+        _render_instructions()
+        return
 
     # ------------------------------------------------------------------ #
     # Upload widget                                                         #
     # ------------------------------------------------------------------ #
+    st.markdown(
+        """
+<div style="text-align:center; padding:12px 0 4px 0;">
+  <span style="font-size:2.5rem;">📷</span>
+  <p style="color:#8b949e; margin:4px 0 10px 0; font-size:0.9rem;">
+    Drop a classroom image below — JPEG, PNG, BMP or WebP
+  </p>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
     uploaded = st.file_uploader(
         "Choose a classroom image",
         type=["jpg", "jpeg", "png", "bmp", "webp"],
@@ -105,18 +150,8 @@ def render_upload_analyze(demo_mode: bool = False, expected_size: int = 25) -> N
             "Static images only.  For best results use a front-facing classroom "
             "camera at a distance where student faces are at least 30 × 30 pixels."
         ),
+        label_visibility="collapsed",
     )
-
-    if not _detector.mediapipe_available():
-        st.warning(
-            "**MediaPipe solutions are unavailable** on this deployment "
-            "(the `solutions` API requires a compatible platform/Python version).  "
-            "Live analysis is disabled.  Enable **Demo Mode** in the sidebar to "
-            "explore all app features with synthetic data.",
-            icon="⚠️",
-        )
-        _render_instructions()
-        return
 
     if uploaded is None:
         _render_instructions()
@@ -170,7 +205,18 @@ def render_upload_analyze(demo_mode: bool = False, expected_size: int = 25) -> N
     # ------------------------------------------------------------------ #
     # Results preview                                                      #
     # ------------------------------------------------------------------ #
-    st.success(f"Analysis complete in {elapsed:.2f} s")
+    st.markdown(
+        f"""
+<div style="background:rgba(0,196,154,0.10); border:1px solid #00c49a;
+     border-radius:10px; padding:12px 18px; margin-bottom:10px;">
+  ✅ <strong style="color:#00c49a;">Analysis complete</strong>
+  <span style="color:#8b949e; font-size:0.88rem; margin-left:8px;">
+    {elapsed:.2f} s
+  </span>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
     _render_results_preview()
 
 
@@ -189,27 +235,79 @@ def _render_results_preview() -> None:
     is_demo = data.get("is_demo", False)
 
     if is_demo:
-        st.warning("⚠️ The values below are **synthetic demo data** and do not "
-                   "represent a real classroom.", icon="🎭")
+        st.markdown(
+            "<div style='background:rgba(255,215,0,0.08); border:1px solid #ffd700; "
+            "border-radius:10px; padding:10px 16px; margin-bottom:12px; font-size:0.88rem; color:#ffd700;'>"
+            "🎭 Synthetic demo data — values do not represent a real classroom."
+            "</div>",
+            unsafe_allow_html=True,
+        )
 
-    # KPI row
+    # ---- KPI cards ----
+    score_pct = ei['classroom_score']
+    score_color = (
+        "#00c49a" if score_pct >= 0.70 else
+        "#ffd700" if score_pct >= 0.45 else
+        "#e94560"
+    )
+    engaged_color = "#00c49a" if ei['engaged_count'] / max(ei['detected_count'], 1) >= 0.5 else "#ffd700"
+    att_color = "#e94560" if ei.get("low_attendance_warning") else "#58a6ff"
+
     col_a, col_b, col_c, col_d = st.columns(4)
-    col_a.metric("Classroom Score",   f"{ei['classroom_score']:.0%}")
-    col_b.metric("Detected students", ai["best_estimate"])
-    col_c.metric("Expected",          ei["expected_size"])
-    col_d.metric("Engaged",           f"{ei['engaged_count']} / {ei['detected_count']}")
+    with col_a:
+        st.markdown(
+            f"<div class='kpi-card'>"
+            f"<div class='kpi-value' style='color:{score_color};'>{score_pct:.0%}</div>"
+            f"<div class='kpi-label'>Classroom Score</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with col_b:
+        st.markdown(
+            f"<div class='kpi-card'>"
+            f"<div class='kpi-value kpi-blue'>{ai['best_estimate']}</div>"
+            f"<div class='kpi-label'>Detected Students</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with col_c:
+        st.markdown(
+            f"<div class='kpi-card'>"
+            f"<div class='kpi-value' style='color:{att_color};'>"
+            f"{ei['attendance_rate']:.0%}</div>"
+            f"<div class='kpi-label'>Attendance Rate</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with col_d:
+        st.markdown(
+            f"<div class='kpi-card'>"
+            f"<div class='kpi-value' style='color:{engaged_color};'>"
+            f"{ei['engaged_count']}<span style='font-size:1.1rem;color:#8b949e;'>/{ei['detected_count']}</span>"
+            f"</div>"
+            f"<div class='kpi-label'>Engaged</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='margin-top:18px;'></div>", unsafe_allow_html=True)
 
     # Attendance warning
     if ei["low_attendance_warning"]:
-        st.warning(
-            f"⚠️ Low attendance: {ai['best_estimate']} of {ei['expected_size']} "
-            f"students detected ({ei['attendance_rate']:.0%}).  "
-            "The classroom engagement score is penalised accordingly.  "
-            "**Do not interpret engagement figures without noting this confound.**"
+        st.markdown(
+            f"<div style='background:rgba(233,69,96,0.10); border:1px solid #e94560; "
+            f"border-radius:10px; padding:12px 18px; margin:10px 0; font-size:0.88rem;'>"
+            f"⚠️ <strong style='color:#e94560;'>Low attendance:</strong> "
+            f"{ai['best_estimate']} of {ei['expected_size']} students detected "
+            f"({ei['attendance_rate']:.0%}). Classroom score is penalised accordingly."
+            f"</div>",
+            unsafe_allow_html=True,
         )
 
+    st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
+
     # Image tabs
-    tab1, tab2, tab3 = st.tabs(["Annotated", "Engagement heatmap", "Blurred original"])
+    tab1, tab2, tab3 = st.tabs(["🔍 Annotated", "🌡️ Heatmap", "🖼️ Blurred original"])
     with tab1:
         st.image(
             cv2.cvtColor(data["annotated_bgr"], cv2.COLOR_BGR2RGB),
@@ -229,7 +327,13 @@ def _render_results_preview() -> None:
             use_container_width=True,
         )
 
-    st.info("Navigate to **Engagement Dashboard** in the sidebar for detailed metrics and charts.")
+    st.markdown(
+        "<div style='background:rgba(88,166,255,0.08); border:1px solid #0f3460; "
+        "border-radius:10px; padding:12px 16px; margin-top:14px; font-size:0.88rem; color:#a0c4e8;'>"
+        "📊 Navigate to <strong>Engagement Dashboard</strong> in the sidebar for detailed metrics and charts."
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
 
 # ---------------------------------------------------------------------------

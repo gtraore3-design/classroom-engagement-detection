@@ -96,7 +96,7 @@ def _per_class_bar(per_class: dict, classes: list[str],
 # ---------------------------------------------------------------------------
 
 def render_model_evaluation() -> None:
-    st.title("Model Evaluation")
+    st.markdown("## 🧪 Model Evaluation")
 
     # TensorFlow is optional — crashes with SIGABRT on Python 3.13+ (no wheels).
     # Everything except live model loading works without it.
@@ -158,11 +158,26 @@ def render_model_evaluation() -> None:
         if scb_metrics.get("note"):
             st.caption(f"ℹ️ {scb_metrics['note']}")
 
-        # ---- KPI ----
-        st.markdown("---")
+        # ---- KPI cards ----
+        st.markdown("<hr style='border-color:#21262d; margin:16px 0;'>", unsafe_allow_html=True)
         c1, c2 = st.columns(2)
-        c1.metric("Accuracy", f"{scb_metrics['accuracy']:.1%}")
-        c2.metric("Macro F1", f"{scb_metrics['macro_f1']:.1%}")
+        with c1:
+            st.markdown(
+                f"<div class='kpi-card'>"
+                f"<div class='kpi-value kpi-engaged'>{scb_metrics['accuracy']:.1%}</div>"
+                f"<div class='kpi-label'>Accuracy (SCB-Dataset)</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown(
+                f"<div class='kpi-card'>"
+                f"<div class='kpi-value kpi-blue'>{scb_metrics['macro_f1']:.1%}</div>"
+                f"<div class='kpi-label'>Macro F1 (SCB-Dataset)</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
 
         # ---- Engagement score mapping table ----
         with st.expander("SCB class → engagement score mapping"):
@@ -282,8 +297,23 @@ Training:
             st.caption(f"ℹ️ {fer_metrics['note']}")
 
         c1, c2 = st.columns(2)
-        c1.metric("FER2013 Accuracy", f"{fer_metrics['accuracy']:.1%}")
-        c2.metric("FER2013 Macro F1", f"{fer_metrics['macro_f1']:.1%}")
+        with c1:
+            st.markdown(
+                f"<div class='kpi-card'>"
+                f"<div class='kpi-value kpi-neutral'>{fer_metrics['accuracy']:.1%}</div>"
+                f"<div class='kpi-label'>Accuracy (FER2013)</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        with c2:
+            st.markdown(
+                f"<div class='kpi-card'>"
+                f"<div class='kpi-value kpi-neutral'>{fer_metrics['macro_f1']:.1%}</div>"
+                f"<div class='kpi-label'>Macro F1 (FER2013)</div>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
 
         st.subheader("Per-Class Metrics (FER2013)")
         fig_fer_bar = _per_class_bar(

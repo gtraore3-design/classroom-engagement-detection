@@ -145,10 +145,17 @@ def _person_score_df(person_results, per_person_scores) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def render_dashboard():
-    st.title("Engagement Dashboard")
+    st.markdown("## 📊 Engagement Dashboard")
 
     if "results" not in st.session_state:
-        st.info("No analysis results yet. Please upload an image on the **Upload & Analyze** page first.")
+        st.markdown(
+            "<div style='background:rgba(88,166,255,0.08); border:1px solid #0f3460; "
+            "border-radius:12px; padding:20px 24px; color:#a0c4e8;'>"
+            "ℹ️ No analysis results yet. Go to <strong>Upload &amp; Analyze</strong> "
+            "in the sidebar to run an analysis first."
+            "</div>",
+            unsafe_allow_html=True,
+        )
         return
 
     data = st.session_state["results"]
@@ -160,13 +167,15 @@ def render_dashboard():
     # Warning banners                                                      #
     # ------------------------------------------------------------------ #
     if ei["low_attendance_warning"]:
-        st.error(
-            f"**Low attendance:** {ai['best_estimate']} detected vs. "
-            f"{ei['expected_size']} expected "
-            f"({ei['attendance_rate']:.0%}).  "
-            "Engagement metrics are computed relative to the expected class size — "
-            "the classroom score is penalised accordingly.  "
-            "**Do not interpret engagement scores without considering this attendance shortfall.**"
+        st.markdown(
+            f"<div style='background:rgba(233,69,96,0.10); border:1px solid #e94560; "
+            f"border-radius:10px; padding:14px 18px; margin-bottom:14px;'>"
+            f"⚠️ <strong style='color:#e94560;'>Low attendance:</strong> "
+            f"{ai['best_estimate']} detected vs. {ei['expected_size']} expected "
+            f"({ei['attendance_rate']:.0%}). "
+            f"Classroom score is penalised accordingly."
+            f"</div>",
+            unsafe_allow_html=True,
         )
 
     if ei["detected_count"] == 0:
@@ -174,15 +183,52 @@ def render_dashboard():
         return
 
     # ------------------------------------------------------------------ #
-    # Top KPIs                                                             #
+    # Top KPI cards                                                        #
     # ------------------------------------------------------------------ #
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Classroom Score",  f"{ei['classroom_score']:.0%}")
-    c2.metric("Students Detected", ei["detected_count"])
-    c3.metric("Engaged",          f"{ei['engaged_count']} / {ei['detected_count']}")
-    c4.metric("Attendance Rate",  f"{ei['attendance_rate']:.0%}")
+    score = ei['classroom_score']
+    score_color = "#00c49a" if score >= 0.70 else "#ffd700" if score >= 0.45 else "#e94560"
+    eng_ratio = ei['engaged_count'] / max(ei['detected_count'], 1)
+    eng_color = "#00c49a" if eng_ratio >= 0.6 else "#ffd700" if eng_ratio >= 0.4 else "#e94560"
+    att_color = "#e94560" if ei.get("low_attendance_warning") else "#00c49a"
 
-    st.markdown("---")
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(
+            f"<div class='kpi-card'>"
+            f"<div class='kpi-value' style='color:{score_color};'>{score:.0%}</div>"
+            f"<div class='kpi-label'>Classroom Score</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f"<div class='kpi-card'>"
+            f"<div class='kpi-value kpi-blue'>{ei['detected_count']}</div>"
+            f"<div class='kpi-label'>Students Detected</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            f"<div class='kpi-card'>"
+            f"<div class='kpi-value' style='color:{eng_color};'>"
+            f"{ei['engaged_count']}"
+            f"<span style='font-size:1.1rem;color:#8b949e;'>/{ei['detected_count']}</span>"
+            f"</div>"
+            f"<div class='kpi-label'>Engaged</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+    with c4:
+        st.markdown(
+            f"<div class='kpi-card'>"
+            f"<div class='kpi-value' style='color:{att_color};'>{ei['attendance_rate']:.0%}</div>"
+            f"<div class='kpi-label'>Attendance Rate</div>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("<div style='margin:20px 0;'></div>", unsafe_allow_html=True)
 
     # ------------------------------------------------------------------ #
     # Gauge                                                                #
@@ -191,19 +237,19 @@ def render_dashboard():
     with col_g:
         st.plotly_chart(_gauge_chart(ei["classroom_score"]), use_container_width=True)
     with col_b:
-        st.markdown("#### Attendance vs. Expected")
+        st.markdown("#### 📅 Attendance vs. Expected")
         att_df = pd.DataFrame({
             "Category": ["Detected", "Expected"],
             "Count":    [ei["detected_count"], ei["expected_size"]],
         })
         st.bar_chart(att_df.set_index("Category"))
 
-    st.markdown("---")
+    st.markdown("<hr style='border-color:#21262d; margin:20px 0;'>", unsafe_allow_html=True)
 
     # ------------------------------------------------------------------ #
     # Proxy breakdown                                                      #
     # ------------------------------------------------------------------ #
-    st.subheader("Behavioral Proxy Scores")
+    st.markdown("### 🧩 Behavioral Proxy Scores")
     st.caption(
         "Each bar shows the class-average score for one behavioral proxy.  "
         "Scores ≥ 60 % are green, 40–60 % orange, < 40 % red."
@@ -237,7 +283,7 @@ def render_dashboard():
     scb_dist   = ei.get("scb_class_distribution", {})
     scb_active = ei.get("scb_model_active", False)
     if scb_active and scb_dist:
-        st.subheader("SCB Behavior Class Distribution")
+        st.markdown("### 🤖 SCB Behavior Class Distribution")
         st.caption(
             "Distribution of CNN-predicted behavior classes across all detected students.  "
             "Green = high engagement class, Orange = moderate, Red = low engagement class."
@@ -251,12 +297,12 @@ def render_dashboard():
             icon="ℹ️",
         )
 
-    st.markdown("---")
+    st.markdown("<hr style='border-color:#21262d; margin:20px 0;'>", unsafe_allow_html=True)
 
     # ------------------------------------------------------------------ #
     # Per-person table                                                     #
     # ------------------------------------------------------------------ #
-    st.subheader("Per-Person Results")
+    st.markdown("### 👤 Per-Person Results")
     st.caption(
         "Engagement scores per detected person.  "
         "Person IDs are arbitrary and do not identify individuals."
@@ -267,8 +313,8 @@ def render_dashboard():
     # ------------------------------------------------------------------ #
     # Heatmap image                                                        #
     # ------------------------------------------------------------------ #
-    st.markdown("---")
-    st.subheader("Spatial Engagement Heatmap")
+    st.markdown("<hr style='border-color:#21262d; margin:20px 0;'>", unsafe_allow_html=True)
+    st.markdown("### 🌡️ Spatial Engagement Heatmap")
     import cv2
     st.image(
         cv2.cvtColor(data["heatmap_bgr"], cv2.COLOR_BGR2RGB),

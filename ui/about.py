@@ -7,10 +7,10 @@ import streamlit as st
 
 
 def render_about():
-    st.title("About & Methodology")
+    st.markdown("## 📖 About & Methodology")
 
     # ------------------------------------------------------------------ #
-    st.header("Why Behavioral Proxies Instead of Facial Emotions?")
+    st.markdown("### 🧠 Why Behavioral Proxies Instead of Facial Emotions?")
     st.markdown(
         """
 Facial emotion recognition (FER) has significant scientific and ethical problems as an
@@ -36,7 +36,7 @@ rather than inferring what they feel:
     )
 
     # ------------------------------------------------------------------ #
-    st.header("System Architecture")
+    st.markdown("### 🏗️ System Architecture")
     st.markdown(
         """
 ```
@@ -93,7 +93,7 @@ Classroom Image
     )
 
     # ------------------------------------------------------------------ #
-    st.header("Engagement Scoring Rubric")
+    st.markdown("### 📐 Engagement Scoring Rubric")
     st.markdown(
         """
 Each person's engagement score is a weighted sum of five behavioral signals, each in [0, 1]:
@@ -120,7 +120,7 @@ mask poor attendance — a well-documented confound in classroom analytics.
     )
 
     # ------------------------------------------------------------------ #
-    st.header("Known Limitations")
+    st.markdown("### ⚠️ Known Limitations")
     st.markdown(
         """
 1. **Single-frame analysis.** Engagement is a temporal state; a single image captures only
@@ -149,7 +149,7 @@ mask poor attendance — a well-documented confound in classroom analytics.
     )
 
     # ------------------------------------------------------------------ #
-    st.header("Ethical Safeguards")
+    st.markdown("### 🛡️ Ethical Safeguards")
     st.markdown(
         """
 The following safeguards are **built into the system**, not just documented:
@@ -167,7 +167,7 @@ The following safeguards are **built into the system**, not just documented:
     )
 
     # ------------------------------------------------------------------ #
-    st.header("References")
+    st.markdown("### 📚 References")
     st.markdown(
         """
 - Mohanta, A. et al. (2023). *SCB-Dataset: A Dataset for Detecting Student Classroom Behavior Using Computer Vision*. arXiv:2304.02488. [Kaggle](https://www.kaggle.com/datasets/asthalochanmohanta/class-room-student-behaviour)
