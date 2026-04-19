@@ -1,0 +1,64 @@
+# =============================================================================
+# Classroom Engagement Detection System — Python dependencies
+# CIS 515 Project · 2026
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# Python version: 3.10 or 3.11 recommended.
+# TensorFlow 2.15 is the last release to bundle Keras 2; newer TF requires
+# the separate tf-keras package (included below as an optional fallback).
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Web UI
+# ---------------------------------------------------------------------------
+streamlit==1.32.0
+
+# ---------------------------------------------------------------------------
+# Computer vision
+# ---------------------------------------------------------------------------
+opencv-python==4.9.0.80         # Image I/O, HOG people detector, solvePnP
+mediapipe==0.10.11              # Face Mesh, Pose, Face Detection
+
+# ---------------------------------------------------------------------------
+# Deep learning (FER2013 CNN — MobileNetV2 transfer learning)
+# ---------------------------------------------------------------------------
+tensorflow==2.15.0
+# tf-keras==2.15.0              # Uncomment if TF 2.16+ raises keras import errors
+
+# ---------------------------------------------------------------------------
+# Classical ML / evaluation metrics
+# ---------------------------------------------------------------------------
+scikit-learn==1.4.1.post1       # accuracy, F1, confusion matrix
+
+# ---------------------------------------------------------------------------
+# Data handling
+# ---------------------------------------------------------------------------
+numpy==1.26.4
+pandas==2.2.1
+
+# ---------------------------------------------------------------------------
+# Visualisation
+# ---------------------------------------------------------------------------
+matplotlib==3.8.3
+seaborn==0.13.2
+plotly==5.20.0                  # Interactive gauge chart in Dashboard
+
+# ---------------------------------------------------------------------------
+# Image I/O
+# ---------------------------------------------------------------------------
+Pillow==10.2.0
+
+# ---------------------------------------------------------------------------
+# Optional: Kaggle API — required for setup.py --download-scb
+# (If you download the SCB-Dataset manually, this is not needed.)
+# ---------------------------------------------------------------------------
+# kaggle==1.6.12
+
+# ---------------------------------------------------------------------------
+# Optional: DeepFace fallback emotion classifier
+# (No FER2013 training required — downloads pre-trained VGG-Face weights on
+# first use.  Remove if you prefer a leaner install.)
+# ---------------------------------------------------------------------------
+# deepface==0.0.89
