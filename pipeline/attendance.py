@@ -17,10 +17,13 @@ import mediapipe as mp
 
 from config import HOG_WIN_STRIDE, HOG_PADDING, HOG_SCALE, HOG_NMS_THRESHOLD, FACE_MIN_DETECTION
 
-_face_det = mp.solutions.face_detection.FaceDetection(
-    model_selection=1,
-    min_detection_confidence=FACE_MIN_DETECTION,
-)
+try:
+    _face_det = mp.solutions.face_detection.FaceDetection(
+        model_selection=1,
+        min_detection_confidence=FACE_MIN_DETECTION,
+    )
+except AttributeError:
+    _face_det = None
 
 _hog = cv2.HOGDescriptor()
 _hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
@@ -52,6 +55,8 @@ def count_faces(bgr_image: np.ndarray) -> tuple[int, list[tuple[int, int, int, i
     Count faces via MediaPipe Face Detection.
     Returns (count, list_of_bbox_xywh).
     """
+    if _face_det is None:
+        return 0, []
     h, w = bgr_image.shape[:2]
     rgb = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
     results = _face_det.process(rgb)

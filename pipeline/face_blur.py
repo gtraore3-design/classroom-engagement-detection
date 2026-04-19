@@ -11,10 +11,13 @@ import mediapipe as mp
 
 from config import FACE_BLUR_KERNEL, MAX_NUM_FACES, FACE_MIN_DETECTION
 
-_face_detection = mp.solutions.face_detection.FaceDetection(
-    model_selection=1,                    # full-range model
-    min_detection_confidence=FACE_MIN_DETECTION,
-)
+try:
+    _face_detection = mp.solutions.face_detection.FaceDetection(
+        model_selection=1,                    # full-range model
+        min_detection_confidence=FACE_MIN_DETECTION,
+    )
+except AttributeError:
+    _face_detection = None
 
 
 def blur_faces(bgr_image: np.ndarray) -> np.ndarray:
@@ -23,6 +26,8 @@ def blur_faces(bgr_image: np.ndarray) -> np.ndarray:
     The original array is never mutated and no face crop is kept in memory.
     """
     output = bgr_image.copy()
+    if _face_detection is None:
+        return output
     h, w = output.shape[:2]
 
     rgb = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
@@ -55,6 +60,8 @@ def draw_face_boxes(bgr_image: np.ndarray, color=(0, 200, 0)) -> tuple[np.ndarra
     Returns (annotated_image, face_count).
     """
     output = bgr_image.copy()
+    if _face_detection is None:
+        return output, 0
     h, w = output.shape[:2]
 
     rgb = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
