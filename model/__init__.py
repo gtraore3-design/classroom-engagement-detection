@@ -17,28 +17,6 @@ fer_model.py       — MobileNetV2 trained on FER2013 emotion classes
                      Model Evaluation page; NOT used for primary scoring.
 """
 
-from .behavior_model import (
-    build_scb_model,
-    load_scb_model,
-    predict_behavior,
-    scb_probs_to_engagement,
-    scb_probs_to_proxy_scores,
-)
-from .fer_model import build_fer_model, load_fer_model
-from .evaluate import evaluate_scb_model, evaluate_fer_model, evaluate_model
-
-__all__ = [
-    # SCB (primary)
-    "build_scb_model",
-    "load_scb_model",
-    "predict_behavior",
-    "scb_probs_to_engagement",
-    "scb_probs_to_proxy_scores",
-    # FER2013 (secondary)
-    "build_fer_model",
-    "load_fer_model",
-    # Evaluation
-    "evaluate_scb_model",
-    "evaluate_fer_model",
-    "evaluate_model",
-]
+# Intentionally empty — import directly from submodules.
+# TensorFlow is optional; top-level re-exports here would force it to be
+# imported at app startup even when it is not installed.

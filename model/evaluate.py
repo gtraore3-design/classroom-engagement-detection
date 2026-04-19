@@ -28,7 +28,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
-import tensorflow as tf
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -118,7 +117,7 @@ DEMO_METRICS = SCB_DEMO_METRICS
 # ===========================================================================
 
 def evaluate_scb_model(
-    model: tf.keras.Model,
+    model,
     X_test: np.ndarray,
     y_test: np.ndarray,
 ) -> dict:
@@ -136,6 +135,7 @@ def evaluate_scb_model(
     dict with keys: accuracy, macro_f1, per_class, confusion_matrix,
                     dataset, note.
     """
+    import tensorflow as tf  # lazy — only when actually evaluating
     test_ds = (
         tf.data.Dataset.from_tensor_slices(X_test)
         .batch(SCB_BATCH_SIZE)
@@ -172,7 +172,7 @@ def evaluate_scb_model(
 
 
 def evaluate_fer_model(
-    model: tf.keras.Model,
+    model,
     X_test: np.ndarray,
     y_test: np.ndarray,
 ) -> dict:
@@ -189,6 +189,7 @@ def evaluate_fer_model(
     -------
     Same dict structure as evaluate_scb_model for uniform UI handling.
     """
+    import tensorflow as tf  # lazy — only when actually evaluating
     test_ds = (
         tf.data.Dataset.from_tensor_slices(X_test)
         .batch(FER_BATCH_SIZE)

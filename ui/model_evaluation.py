@@ -30,8 +30,9 @@ from config import (
     SCB_ENGAGEMENT_SCORES,
 )
 from model.evaluate import SCB_DEMO_METRICS, FER_DEMO_METRICS
-from model.behavior_model import load_scb_model
-from model.fer_model import load_fer_model
+
+# load_scb_model / load_fer_model are imported lazily inside render_model_evaluation()
+# so that TensorFlow is never required at app startup.
 
 # Optional DeepFace (graceful degradation)
 try:
@@ -95,6 +96,26 @@ def _per_class_bar(per_class: dict, classes: list[str],
 
 def render_model_evaluation() -> None:
     st.title("Model Evaluation")
+
+    # TensorFlow is optional — not available on Python 3.14 / Streamlit Cloud.
+    # Everything except live model loading works without it.
+    try:
+        from model.behavior_model import load_scb_model
+        from model.fer_model import load_fer_model
+        _tf_available = True
+    except ImportError:
+        _tf_available = False
+        load_scb_model = lambda: None  # noqa: E731
+        load_fer_model = lambda: None  # noqa: E731
+
+    if not _tf_available:
+        st.info(
+            "**TensorFlow is not installed** on this deployment.  "
+            "Reference metrics and charts are shown below.  "
+            "Live model inference requires TensorFlow — install it locally to "
+            "train and evaluate a custom checkpoint.",
+            icon="ℹ️",
+        )
 
     tab_scb, tab_fer = st.tabs([
         "📊  SCB-Dataset (Primary)",
