@@ -18,13 +18,13 @@ streamlit==1.32.0
 # ---------------------------------------------------------------------------
 # Computer vision
 # ---------------------------------------------------------------------------
-opencv-python==4.9.0.80         # Image I/O, HOG people detector, solvePnP
-mediapipe==0.10.11              # Face Mesh, Pose, Face Detection
+opencv-python-headless>=4.9.0         # Image I/O, HOG people detector, solvePnP
+mediapipe>=0.10.30              # Face Mesh, Pose, Face Detection
 
 # ---------------------------------------------------------------------------
 # Deep learning (FER2013 CNN — MobileNetV2 transfer learning)
 # ---------------------------------------------------------------------------
-tensorflow==2.15.0
+tensorflow-cpu>=2.15.0
 # tf-keras==2.15.0              # Uncomment if TF 2.16+ raises keras import errors
 
 # ---------------------------------------------------------------------------
