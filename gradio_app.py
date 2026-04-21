@@ -9,11 +9,11 @@ Detection pipeline (OpenCV only):
   3. HOG pedestrian detector (bodies without visible faces)
   4. IoU NMS — merge / deduplicate
   5. Per-person behavioral signals:
-       head pose   (face aspect ratio + eye symmetry)
-       posture     (body-box h/w ratio)
-       hand raise  (skin-blob above face)
-       phone use   (bright rectangle in lap region — penalty)
-       talking     (face-pair proximity)
+       head pose   (face aspect ratio + eye symmetry)          30 %
+       posture     (body-box h/w ratio)                        25 %
+       hand raise  (skin-blob above face)                      25 %
+       phone use   (bright rectangle in lap region)           −20 %
+       talking     (face-pair proximity)                       10 %
   6. Attendance-adjusted class-pulse score
 
 Usage:
@@ -26,7 +26,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 
 import cv2
 import gradio as gr
@@ -47,7 +46,6 @@ SAMPLE_PATH = os.path.join(_DATA_DIR, "sample_classroom.jpg")
 
 
 def _ensure_sample() -> None:
-    """Create data/sample_classroom.jpg if it doesn't exist."""
     if os.path.exists(SAMPLE_PATH):
         return
     os.makedirs(_DATA_DIR, exist_ok=True)
@@ -79,7 +77,7 @@ def analyze(
     Returns
     -------
     annotated_rgb  np.ndarray   — BGR→RGB annotated frame (faces blurred)
-    metrics_html   str          — HTML KPI summary
+    metrics_html   str          — HTML KPI summary + legend + footer
     signal_chart   plt.Figure   — per-signal bar chart
     gauge_fig      plt.Figure   — class-pulse semicircular gauge
     """
@@ -89,7 +87,6 @@ def analyze(
         except Exception:
             return _empty_rgb(), _no_image_html(), _empty_fig(), _empty_fig()
 
-    # PIL (RGB) → OpenCV (BGR)
     bgr = cv2.cvtColor(np.array(pil_image.convert("RGB")), cv2.COLOR_RGB2BGR)
 
     try:
@@ -97,7 +94,7 @@ def analyze(
     except Exception as exc:
         return (
             cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB),
-            f"<p style='color:red'>Detection error: {exc}</p>",
+            f"<p style='color:#e74c3c; font-family:sans-serif;'>Detection error: {exc}</p>",
             _empty_fig(),
             _empty_fig(),
         )
@@ -112,93 +109,266 @@ def analyze(
 
 
 # ---------------------------------------------------------------------------
-# HTML helpers
+# CSS injected via gr.HTML — targets Gradio 6 rendered elements
 # ---------------------------------------------------------------------------
 
-_CARD = (
-    "display:inline-block; background:#fff; border:1px solid #e0e0e0; "
-    "border-radius:10px; padding:12px 18px; text-align:center; "
-    "min-width:100px; margin:4px;"
+_INJECT_CSS = """
+<style>
+/* ── Page & container ──────────────────────────────────────────────────── */
+body, .gradio-container {
+  background: #1a1a2e !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+/* Hide Gradio footer branding */
+footer { display: none !important; }
+
+/* ── Input panel wrapper ───────────────────────────────────────────────── */
+.ced-panel {
+  background: #16213e;
+  border-radius: 14px;
+  border: 1px solid #0e3460;
+  box-shadow: 0 6px 28px rgba(0,0,0,0.35);
+  padding: 14px 16px 18px;
+}
+
+/* ── Image upload — dashed teal border ─────────────────────────────────── */
+.ced-upload .wrap { border: 2px dashed #0e7c7b !important; border-radius: 10px !important; }
+.ced-upload .wrap:hover { border-color: #27ae60 !important; background: rgba(14,124,123,0.05) !important; }
+
+/* ── Annotated image output — teal border ──────────────────────────────── */
+.ced-img-out img { border: 2px solid #0e7c7b; border-radius: 8px; }
+
+/* ── Gradient Analyze button ───────────────────────────────────────────── */
+.ced-btn button.primary {
+  background: linear-gradient(135deg, #0f3460 0%, #0e7c7b 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+  font-size: 1.02rem !important;
+  border-radius: 10px !important;
+  padding: 12px 0 !important;
+  box-shadow: 0 4px 16px rgba(14,124,123,0.40) !important;
+  transition: opacity 0.18s ease, transform 0.12s ease !important;
+}
+.ced-btn button.primary:hover {
+  opacity: 0.87 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ── Slider label bold ─────────────────────────────────────────────────── */
+.ced-slider label > span:first-child { font-weight: 700 !important; color: #c9d1d9 !important; }
+
+/* ── Demo checkbox ─────────────────────────────────────────────────────── */
+.ced-check label span { color: #8b949e !important; font-size: 0.88rem !important; }
+
+/* ── Chart panel bg ────────────────────────────────────────────────────── */
+.ced-chart { border-radius: 10px; overflow: hidden; }
+
+/* ── Accordion ─────────────────────────────────────────────────────────── */
+.ced-accordion {
+  background: #16213e !important;
+  border: 1px solid #21262d !important;
+  border-radius: 10px !important;
+  margin-top: 12px !important;
+}
+.ced-accordion .label-wrap span { color: #8b949e !important; }
+</style>
+"""
+
+# ---------------------------------------------------------------------------
+# Header HTML
+# ---------------------------------------------------------------------------
+
+_HEADER = """
+<div style="
+  background: linear-gradient(135deg, #0f3460 0%, #0e4d8a 45%, #0e7c7b 100%);
+  border-radius: 14px;
+  padding: 22px 28px 18px;
+  margin-bottom: 6px;
+  box-shadow: 0 6px 30px rgba(0,0,0,0.40);
+">
+  <div style="display:flex; align-items:center; gap:12px;">
+    <span style="font-size:2rem; line-height:1;">🎓</span>
+    <div>
+      <h2 style="color:#fff; margin:0; font-size:1.65rem; font-weight:800; letter-spacing:-0.3px;">
+        Classroom Engagement Detector
+      </h2>
+      <p style="color:rgba(255,255,255,0.72); margin:4px 0 0; font-size:0.88rem; letter-spacing:0.3px;">
+        Behavioral proxy analysis &nbsp;·&nbsp; Privacy-first &nbsp;·&nbsp; No face recognition
+      </p>
+    </div>
+  </div>
+  <div style="height:1.5px; background:rgba(255,255,255,0.22); margin-top:16px; border-radius:1px;"></div>
+</div>
+"""
+
+# ---------------------------------------------------------------------------
+# Metrics HTML builder
+# ---------------------------------------------------------------------------
+
+_PULSE_EMOJI = {"High": "🟢", "Moderate": "🟡", "Low": "🔴"}
+
+# (icon, label_text, value_key, colour_fn)
+_CARD_DEFS = [
+    ("👥", "Detected",   "detected",          None),
+    ("📋", "Attendance", "attendance_rate_pct", None),
+    ("✅", "Engaged",    "engaged_count",       None),
+    ("➡️", "Neutral",   "neutral_count",       None),
+    ("❌", "Disengaged", "disengaged_count",    None),
+]
+
+_SMALL_CARD = (
+    "display:inline-flex; flex-direction:column; align-items:center; "
+    "background:#fff; border-radius:12px; padding:11px 14px; "
+    "min-width:90px; text-align:center; "
+    "box-shadow: 0 2px 10px rgba(0,0,0,0.09); "
+    "border: 1.5px solid {border};"
 )
-_VAL  = "font-size:1.9rem; font-weight:700; margin:0; line-height:1.1;"
-_LBL  = "font-size:0.76rem; color:#777; margin:4px 0 0 0;"
+_PULSE_CARD = (
+    "display:inline-flex; flex-direction:column; align-items:center; "
+    "background:#fff; border-radius:14px; padding:16px 26px; "
+    "text-align:center; "
+    "box-shadow: 0 4px 20px rgba(0,0,0,0.13); "
+    "border: 2.5px solid {border}; "
+    "margin-right: 6px;"
+)
 
 
-def _kpi(value: str, label: str, colour: str = "#333") -> str:
+def _val_colour(label: str, pct: float | None = None) -> str:
+    """Return a traffic-light hex colour for a KPI value."""
+    if pct is None:
+        return "#333"
+    if pct >= 0.65:
+        return "#27ae60"
+    elif pct >= 0.40:
+        return "#f39c12"
+    return "#e74c3c"
+
+
+def _small_card(icon: str, label: str, value: str, border: str) -> str:
+    style = _SMALL_CARD.format(border=border)
     return (
-        f"<div style='{_CARD}'>"
-        f"<p style='{_VAL} color:{colour};'>{value}</p>"
-        f"<p style='{_LBL}'>{label}</p>"
+        f"<div style='{style}'>"
+        f"<span style='font-size:1.1rem;'>{icon}</span>"
+        f"<span style='font-size:1.65rem; font-weight:800; color:#222; line-height:1.2;'>{value}</span>"
+        f"<span style='font-size:0.7rem; color:#888; margin-top:2px;'>{label}</span>"
         f"</div>"
     )
 
 
 def _metrics_html(s: dict, is_demo: bool = False) -> str:
     pulse_colour = PULSE_COLOUR.get(s["pulse_label"], "#555")
-    att_colour   = "#e74c3c" if s["low_attendance"] else "#27ae60"
+    att_rate     = s["attendance_rate"]
+    eng_ratio    = s["engaged_count"] / max(s["detected"], 1)
 
-    demo_banner = (
-        "<div style='background:#fff8e1; border:1px solid #ffc107; "
-        "border-radius:8px; padding:8px 14px; margin-bottom:10px; "
-        "font-size:0.85rem; color:#795548;'>"
-        "🎭 <strong>Demo mode</strong> — synthetic classroom image.  "
-        "Toggle Demo Mode off and upload a real photo for live analysis."
+    # ── Demo / warning banners ────────────────────────────────────────────────
+    banners = ""
+    if is_demo:
+        banners += (
+            "<div style='background:#fff8e1; border:1px solid #ffc107; "
+            "border-radius:9px; padding:8px 14px; margin-bottom:10px; "
+            "font-size:0.83rem; color:#795548; font-family:sans-serif;'>"
+            "🎭 <strong>Demo mode</strong> — synthetic classroom image. "
+            "Toggle off and upload a real photo for live analysis."
+            "</div>"
+        )
+    if s["low_attendance"]:
+        banners += (
+            "<div style='background:#fdecea; border:1px solid #e74c3c; "
+            "border-radius:9px; padding:8px 14px; margin-bottom:10px; "
+            "font-size:0.83rem; color:#b71c1c; font-family:sans-serif;'>"
+            f"⚠️ <strong>Low attendance:</strong> "
+            f"{s['detected']} of {s['expected']} students detected "
+            f"({att_rate:.0%}). Class score penalised."
+            "</div>"
+        )
+
+    # ── Image legend ──────────────────────────────────────────────────────────
+    legend = (
+        "<div style='display:flex; gap:20px; justify-content:center; "
+        "padding:8px 0 10px; font-size:0.82rem; color:#555; font-family:sans-serif;'>"
+        "<span>🟢 Engaged&nbsp;(≥60%)</span>"
+        "<span>🟡 Neutral&nbsp;(35–60%)</span>"
+        "<span>🔴 Disengaged&nbsp;(&lt;35%)</span>"
         "</div>"
-        if is_demo else ""
     )
 
-    warning = (
-        "<div style='background:#fdecea; border:1px solid #e74c3c; "
-        "border-radius:8px; padding:8px 14px; margin-bottom:10px; "
-        "font-size:0.85rem; color:#b71c1c;'>"
-        f"⚠️ <strong>Low attendance:</strong> "
-        f"{s['detected']} of {s['expected']} students detected "
-        f"({s['attendance_rate']:.0%}).  Class score penalised."
-        "</div>"
-        if s["low_attendance"] else ""
-    )
-
-    kpis = (
-        _kpi(f"{s['class_score_pct']:.0f}%", "Class Pulse",       pulse_colour) +
-        _kpi(str(s["detected"]),              "Detected",          "#2980b9") +
-        _kpi(f"{s['attendance_rate']:.0%}",   "Attendance",        att_colour) +
-        _kpi(str(s["engaged_count"]),         "Engaged",           "#27ae60") +
-        _kpi(str(s["neutral_count"]),         "Neutral",           "#f39c12") +
-        _kpi(str(s["disengaged_count"]),      "Disengaged",        "#e74c3c")
-    )
-
+    # ── Engagement badge ──────────────────────────────────────────────────────
+    emoji = _PULSE_EMOJI.get(s["pulse_label"], "")
     badge = (
-        f"<span style='background:{pulse_colour}18; color:{pulse_colour}; "
-        f"border:1px solid {pulse_colour}; border-radius:20px; "
-        f"padding:2px 12px; font-size:0.85rem; font-weight:600;'>"
-        f"{s['pulse_label']} Engagement"
+        f"<div style='margin-bottom:12px;'>"
+        f"<span style='"
+        f"background:{pulse_colour}22; color:{pulse_colour}; "
+        f"border:1.5px solid {pulse_colour}; border-radius:22px; "
+        f"padding:5px 18px; font-size:0.94rem; font-weight:700; "
+        f"font-family:sans-serif; letter-spacing:0.2px;'>"
+        f"{emoji} {s['pulse_label']} Engagement"
         f"</span>"
+        f"</div>"
     )
 
-    privacy = (
-        "<p style='color:#999; font-size:0.74rem; margin-top:10px;'>"
-        "🔒 Faces blurred before display.  "
-        "No images or personal data stored.  "
-        "Scores represent <em>aggregate classroom trends only</em> — "
-        "no individual is identified."
-        "</p>"
+    # ── Class Pulse card (large) ──────────────────────────────────────────────
+    pulse_style = _PULSE_CARD.format(border=pulse_colour)
+    pulse_card  = (
+        f"<div style='{pulse_style}'>"
+        f"<span style='font-size:1rem;'>📊</span>"
+        f"<span style='font-size:3rem; font-weight:900; color:{pulse_colour}; "
+        f"line-height:1.05; margin-top:2px;'>{s['class_score_pct']:.0f}%</span>"
+        f"<span style='font-size:0.7rem; color:#888; margin-top:4px;'>Class Pulse</span>"
+        f"</div>"
+    )
+
+    # ── Small cards ───────────────────────────────────────────────────────────
+    att_border = "#27ae60" if att_rate >= 0.65 else ("#f39c12" if att_rate >= 0.40 else "#e74c3c")
+    eng_border = "#27ae60" if eng_ratio >= 0.5 else "#f39c12"
+    neu_border = "#ddd"
+    dis_border = "#e74c3c" if s["disengaged_count"] > s["engaged_count"] else "#ddd"
+    det_border = "#2980b9"
+
+    small_cards = (
+        _small_card("👥", "Detected",   str(s["detected"]),        det_border) +
+        _small_card("📋", "Attendance", f"{att_rate:.0%}",          att_border) +
+        _small_card("✅", "Engaged",    str(s["engaged_count"]),    eng_border) +
+        _small_card("➡️", "Neutral",   str(s["neutral_count"]),    neu_border) +
+        _small_card("❌", "Disengaged", str(s["disengaged_count"]), dis_border)
+    )
+
+    cards_row = (
+        "<div style='display:flex; flex-wrap:wrap; gap:8px; align-items:stretch; "
+        "margin-bottom:14px;'>"
+        + pulse_card + small_cards +
+        "</div>"
+    )
+
+    # ── Footer bar ────────────────────────────────────────────────────────────
+    footer = (
+        "<div style='background:linear-gradient(135deg,#0f3460,#0e4d8a); "
+        "border-radius:10px; padding:10px 16px; "
+        "display:flex; justify-content:space-between; align-items:center; "
+        "margin-top:4px;'>"
+        "<span style='color:rgba(255,255,255,0.68); font-size:0.75rem; font-family:sans-serif;'>"
+        "🔒 Faces blurred · In-memory only · Aggregate class trends · No individual identified"
+        "</span>"
+        "<span style='color:rgba(255,255,255,0.45); font-size:0.74rem; font-family:sans-serif; "
+        "white-space:nowrap; margin-left:12px;'>"
+        "CIS 515 · ASU · Team 6 · 2026"
+        "</span>"
+        "</div>"
     )
 
     return (
-        f"<div style='font-family:sans-serif;'>"
-        + demo_banner + warning
-        + f"<div style='margin-bottom:8px;'>{badge}</div>"
-        + f"<div>{kpis}</div>"
-        + privacy
+        "<div style='font-family:sans-serif;'>"
+        + banners + legend + badge + cards_row + footer
         + "</div>"
     )
 
 
 def _no_image_html() -> str:
     return (
-        "<div style='font-family:sans-serif; color:#888; "
-        "padding:24px; text-align:center; font-size:1rem;'>"
-        "📷 Upload a classroom image or enable <strong>Demo Mode</strong>, "
+        "<div style='font-family:sans-serif; color:#8b949e; "
+        "padding:30px 0; text-align:center; font-size:0.95rem;'>"
+        "<div style='font-size:2.5rem; margin-bottom:10px;'>📷</div>"
+        "Upload a classroom photo or enable <strong>Demo Mode</strong>,<br>"
         "then click <strong>Analyze</strong>."
         "</div>"
     )
@@ -209,36 +379,26 @@ def _no_image_html() -> str:
 # ---------------------------------------------------------------------------
 
 def _empty_rgb() -> np.ndarray:
-    img = np.full((400, 600, 3), 240, dtype=np.uint8)
-    cv2.putText(img, "No image", (200, 200),
-                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (160, 160, 160), 2, cv2.LINE_AA)
+    img = np.full((400, 600, 3), 26, dtype=np.uint8)
+    cv2.putText(img, "No image", (185, 205),
+                cv2.FONT_HERSHEY_SIMPLEX, 1.0, (70, 70, 70), 2, cv2.LINE_AA)
     return img
 
 
 def _empty_fig() -> plt.Figure:
-    fig, ax = plt.subplots(figsize=(4, 2.5))
+    fig, ax = plt.subplots(figsize=(4.2, 2.8))
+    fig.patch.set_facecolor("#0f1923")
+    ax.set_facecolor("#0f1923")
     ax.text(0.5, 0.5, "—", ha="center", va="center",
-            fontsize=18, color="#ccc", transform=ax.transAxes)
+            fontsize=24, color="#2d3748", transform=ax.transAxes)
     ax.axis("off")
-    fig.patch.set_facecolor("#fafafa")
     fig.tight_layout()
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Gradio UI
+# How-it-works accordion content
 # ---------------------------------------------------------------------------
-
-_HEADER = """
-<div style="font-family:sans-serif; padding:8px 0 4px 0;">
-  <h2 style="margin:0; font-size:1.6rem;">🎓 Classroom Engagement Detector</h2>
-  <p style="color:#666; margin:4px 0 0 0; font-size:0.9rem;">
-    Upload a front-facing classroom photo — the system estimates engagement
-    from <strong>body-geometry behavioral proxies</strong> using
-    OpenCV only (no cloud API, no face recognition, no data stored).
-  </p>
-</div>
-"""
 
 _HOW_IT_WORKS = """
 ### Detection pipeline
@@ -247,23 +407,22 @@ _HOW_IT_WORKS = """
 |------|--------|-----------------|
 | 1 | CLAHE equalisation | Fix mixed classroom lighting |
 | 2 | Haar face cascade (frontal + profile) | Per-student anchor |
-| 3 | HOG pedestrian detector | Bodies with no visible face |
+| 3 | HOG pedestrian detector | Bodies without a visible face |
 | 4 | IoU NMS | Remove duplicate detections |
-| 5a | **Head pose** | Face aspect ratio + eye-symmetry ratio |
+| 5a | **Head pose** | Face aspect ratio + Haar eye-symmetry ratio |
 | 5b | **Posture** | Body-box h/w ratio (tall-narrow = upright) |
-| 5c | **Hand raise** | Skin-blob in region above face |
+| 5c | **Hand raise** | Skin-colour blob in region above face |
 | 5d | **Phone use** | Bright rectangle in lap region (−20 % penalty) |
 | 5e | **Talking** | Two faces side-by-side at same height |
 
 ### Engagement score per student
 
 ```
-score = 0.30×head_pose + 0.25×posture + 0.25×hand_raise
-      + 0.10×talking   − 0.20×phone_detected
+score = 0.30 × head_pose + 0.25 × posture + 0.25 × hand_raise
+      + 0.10 × talking   − 0.20 × phone_detected
 ```
 
-A baseline attentive student (head forward, upright, not talking,
-no hand raised, no phone) scores **0.60 → Engaged**.
+Baseline attentive student (head forward, upright, no phone, no hand raised)  →  **0.60 → Engaged**.
 
 ### Class pulse
 
@@ -271,71 +430,98 @@ no hand raised, no phone) scores **0.60 → Engaged**.
 class_pulse = Σ(individual scores) / expected_class_size × 100
 ```
 
-Absent students implicitly score 0, so low attendance penalises
-the pulse naturally.
+Absent students implicitly score 0, so low attendance penalises the pulse naturally.
 
-### Privacy
+### Privacy safeguards
 
-* Face regions are **Gaussian-blurred** before any display.
-* All processing is **in-memory** — no images, no personal data retained.
-* Results are **aggregate only** — no individual is identified or tracked.
+* Face regions **Gaussian-blurred** before any display.
+* All processing **in-memory** — no files, no database, no logging.
+* Output is **aggregate class-level only** — no individual is identified or tracked.
+* Body-geometry proxies avoid the demographic biases documented in facial emotion recognition systems (Buolamwini & Gebru, 2018).
 """
+
+# ---------------------------------------------------------------------------
+# Gradio UI
+# ---------------------------------------------------------------------------
 
 
 def build_ui() -> gr.Blocks:
     with gr.Blocks(title="Classroom Engagement Detector") as demo:
 
+        # ── Inject CSS ────────────────────────────────────────────────────────
+        gr.HTML(_INJECT_CSS)
+
+        # ── Header ────────────────────────────────────────────────────────────
         gr.HTML(_HEADER)
 
+        # ── Main layout ───────────────────────────────────────────────────────
         with gr.Row(equal_height=False):
-            # ── Left column: controls ─────────────────────────────────────
-            with gr.Column(scale=1, min_width=260):
+
+            # Left column — controls
+            with gr.Column(scale=1, min_width=265, elem_classes=["ced-panel"]):
                 img_input = gr.Image(
                     type="pil",
                     label="📷 Classroom photo",
                     sources=["upload", "clipboard"],
-                    height=280,
+                    height=270,
+                    elem_classes=["ced-upload"],
                 )
                 expected_slider = gr.Slider(
                     minimum=1, maximum=60, step=1, value=30,
                     label="Expected class size",
                     info="Instructor-supplied enrolment (for attendance rate).",
+                    elem_classes=["ced-slider"],
                 )
                 demo_toggle = gr.Checkbox(
-                    label="🎭 Demo mode (use bundled sample image)",
+                    label="🎭 Demo mode — use bundled sample image",
                     value=False,
+                    elem_classes=["ced-check"],
                 )
                 analyze_btn = gr.Button(
-                    "🔍 Analyze", variant="primary", size="lg",
+                    "🔍  Analyze",
+                    variant="primary",
+                    size="lg",
+                    elem_classes=["ced-btn"],
                 )
                 gr.Markdown(
-                    "<p style='color:#999; font-size:0.75rem; margin-top:6px;'>"
+                    "<p style='color:#8b949e; font-size:0.75rem; margin-top:8px; "
+                    "font-family:sans-serif;'>"
                     "Best results: front-facing camera, faces ≥ 30 × 30 px, "
-                    "students occupy most of the frame."
+                    "students in most of the frame."
                     "</p>"
                 )
 
-            # ── Right column: results ─────────────────────────────────────
-            with gr.Column(scale=2, min_width=420):
+            # Right column — results
+            with gr.Column(scale=2, min_width=400):
                 img_output = gr.Image(
-                    label="Annotated image (faces blurred)",
-                    height=340,
+                    label="Annotated image — faces blurred",
+                    height=330,
+                    elem_classes=["ced-img-out"],
                 )
                 metrics_html = gr.HTML(value=_no_image_html())
 
                 with gr.Row():
-                    gauge_out  = gr.Plot(label="Class pulse", scale=1)
-                    signal_out = gr.Plot(label="Signal breakdown", scale=2)
+                    gauge_out  = gr.Plot(
+                        label="Class pulse gauge",
+                        scale=1,
+                        elem_classes=["ced-chart"],
+                    )
+                    signal_out = gr.Plot(
+                        label="Signal breakdown",
+                        scale=2,
+                        elem_classes=["ced-chart"],
+                    )
 
-        # ── Wire button ───────────────────────────────────────────────────
+        # ── Wire button ───────────────────────────────────────────────────────
         analyze_btn.click(
             fn=analyze,
             inputs=[img_input, expected_slider, demo_toggle],
             outputs=[img_output, metrics_html, signal_out, gauge_out],
         )
 
-        # ── How it works ──────────────────────────────────────────────────
-        with gr.Accordion("ℹ️ How it works", open=False):
+        # ── How it works accordion ────────────────────────────────────────────
+        with gr.Accordion("ℹ️  How it works", open=False,
+                          elem_classes=["ced-accordion"]):
             gr.Markdown(_HOW_IT_WORKS)
 
     return demo
