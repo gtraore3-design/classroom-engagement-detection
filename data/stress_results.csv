@@ -1,0 +1,6 @@
+scenario,source,detected,class_pulse,pulse_label,elapsed_ms
+normal,controlled,0,0.0,Low,196.5
+low_light,controlled,0,0.0,Low,85.2
+blurred,controlled,3,5.1,Low,106.5
+noisy,controlled,0,0.0,Low,119.4
+occlusion,controlled,0,0.0,Low,76.3

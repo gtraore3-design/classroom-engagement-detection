@@ -5,5 +5,12 @@ __pycache__/
 venv/
 .env
 *.keras
-data/
+# Ignore raw/large data uploads but track generated evaluation artefacts
+data/*
+!data/make_sample.py
+!data/sample_classroom.jpg
+!data/stress_results.csv
+!data/stress_tests/
+!data/stress_tests/**
+!data/real_world_tests/
 .DS_Store
